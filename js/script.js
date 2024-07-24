@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var sidebar = document.getElementById('sidebar');
 
     // Función para mostrar las fotos y comentarios en el sidebar
-    function updateSidebarWithPhotos(features) {
+    function updateSidebarWithPhotos(features, markers) {
         var photosContainer = document.getElementById('photos-container');
         if (!photosContainer) {
             console.error("photosContainer no encontrado");
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         photosContainer.innerHTML = ''; // Limpiar el contenedor
 
-        features.forEach(function (feature) {
+        features.forEach(function (feature, index) {
             var url = 'images/' + String(feature.properties['Imagen']).replace(/[\\/:]/g, '_').trim();
             var comment = feature.properties['Comentario'] !== null ? feature.properties['Comentario'] : '';
 
@@ -32,12 +32,22 @@ document.addEventListener('DOMContentLoaded', function () {
             photoItem.innerHTML = '<img src="' + url + '" width="300" height="225" title="' + comment + '">\
                                    <div class="photo-comment">' + comment + '</div>';
 
+            // Añadir evento para resaltar marcador y foto
             photoItem.addEventListener('mouseover', function () {
-                var latlng = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
-                map.setView(latlng, 16); // Hacer zoom al geojson correspondiente
+                var marker = markers[index];
+                marker.setStyle({ color: 'blue', fillColor: 'yellow' });
+                map.setView(marker.getLatLng(), 16);
+            });
+
+            photoItem.addEventListener('mouseout', function () {
+                var marker = markers[index];
+                marker.setStyle(style_vacas_ejem_1_0());
             });
 
             photosContainer.appendChild(photoItem);
+
+            // Añadir referencia de la foto al marcador
+            markers[index].photoItem = photoItem;
         });
     }
 
@@ -45,9 +55,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function getFeatures() {
         return json_vacas_ejem_1.features; // Obtener todas las características del GeoJSON
     }
-
-    // Inicializar el sidebar con las fotos y comentarios
-    updateSidebarWithPhotos(getFeatures());
 
     // Definir la función removeEmptyRowsFromPopupContent
     function removeEmptyRowsFromPopupContent(content, feature) {
@@ -76,6 +83,28 @@ document.addEventListener('DOMContentLoaded', function () {
         var content = popup.getContent();
         var updatedContent = removeEmptyRowsFromPopupContent(content, feature);
         popup.setContent(updatedContent);
+
+        // Añadir evento para resaltar foto correspondiente al pasar el ratón sobre el marcador
+        layer.on('mouseover', function () {
+            if (layer.photoItem) {
+                layer.photoItem.style.border = '2px solid blue';
+                layer.photoItem.style.backgroundColor = 'yellow';
+            }
+        });
+
+        layer.on('mouseout', function () {
+            if (layer.photoItem) {
+                layer.photoItem.style.border = '';
+                layer.photoItem.style.backgroundColor = '';
+            }
+        });
+
+        // Añadir evento para centrar la foto al hacer clic en el marcador
+        layer.on('click', function () {
+            if (layer.photoItem) {
+                layer.photoItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
     }
 
     // Definir el estilo y agregar el layer
@@ -99,13 +128,18 @@ document.addEventListener('DOMContentLoaded', function () {
     map.createPane('pane_vacas_ejem_1');
     map.getPane('pane_vacas_ejem_1').style.zIndex = 401;
     map.getPane('pane_vacas_ejem_1').style['mix-blend-mode'] = 'normal';
+
+    var markers = [];
     var layer_vacas_ejem_1 = new L.geoJson(json_vacas_ejem_1, {
         attribution: '',
         interactive: true,
         dataVar: 'json_vacas_ejem_1',
         layerName: 'layer_vacas_ejem_1',
         pane: 'pane_vacas_ejem_1',
-        onEachFeature: pop_vacas_ejem_1,
+        onEachFeature: function (feature, layer) {
+            pop_vacas_ejem_1(feature, layer);
+            markers.push(layer);
+        },
         pointToLayer: function (feature, latlng) {
             var context = {
                 feature: feature,
@@ -147,4 +181,8 @@ document.addEventListener('DOMContentLoaded', function () {
         collapsed: true,
     });
     lay.addTo(map);
+
+    // Inicializar el sidebar con las fotos y comentarios
+    updateSidebarWithPhotos(getFeatures(), markers);
 });
+
